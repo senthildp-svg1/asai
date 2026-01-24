@@ -1,0 +1,55 @@
+import { NextRequest, NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { db } from "@/lib/firebase";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+
+export async function POST(req: NextRequest) {
+    try {
+        const { query: userQuery, clientHint } = await req.json();
+
+        if (!userQuery) {
+            return NextResponse.json({ error: "Query is required" }, { status: 400 });
+        }
+
+        // 1. Retrieval: Query Firestore for relevant document snippets
+        let docsQuery = query(collection(db, "documents"), limit(5));
+        if (clientHint) {
+            docsQuery = query(collection(db, "documents"), where("metadata.client", "==", clientHint), limit(5));
+        }
+
+        const snapshot = await getDocs(docsQuery);
+        const context = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return `[File: ${data.metadata.fileName}, Client: ${data.metadata.client}] Content: ${data.text.substring(0, 1000)}`;
+        }).join("\n\n");
+
+        // 2. Reasoning: Use Gemini to reason over context and provide answer with traceability
+        const prompt = `
+      You are Asai Analytics Chatbot. Answer the following user query using ONLY the provided document context.
+      If the information is not found in the context, respond with "Not found".
+      
+      For every statement, provide a citation in the format [Source: FileName, Page/Section].
+      Also provided a "Justification" section explaining why this answer was pulled.
+
+      User Query: ${userQuery}
+      
+      Context:
+      ${context || "No context found."}
+    `;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response.text();
+
+        return NextResponse.json({
+            answer: response,
+            found: !response.includes("Not found")
+        });
+
+    } catch (error: any) {
+        console.error("Chat API error:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
