@@ -1,7 +1,4 @@
-/**
- * Asai Analytics Triage Engine
- * Automatically categorizes documents based on content and metadata
- */
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export interface TriageResult {
     client?: string;
@@ -11,43 +8,61 @@ export interface TriageResult {
 }
 
 export class TriageEngine {
-    // Keywords mapping for construction domain
-    private clientKeywords = ['Acme Corp', 'Global Build', 'Metro Infrastructure'];
-    private productKeywords = ['Heavy Machinery', 'Safety Equipment', 'Building Materials'];
-    private domainKeywords = ['Regulations', 'Contracts', 'Technical Specifications'];
+    private genAI: GoogleGenerativeAI;
+    private model: any;
+
+    constructor() {
+        this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+        this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    }
 
     /**
-     * Triage a document based on its name and content snippet
+     * Triage a document based on its name and content snippet using AI
      */
     async triage(fileName: string, contentSnippet: string): Promise<TriageResult> {
-        const combinedText = `${fileName} ${contentSnippet}`.toLowerCase();
-
-        const result: TriageResult = { confidence: 0 };
-
-        // Triage by Client
-        for (const client of this.clientKeywords) {
-            if (combinedText.includes(client.toLowerCase())) {
-                result.client = client;
-                result.confidence += 0.4;
+        const prompt = `
+            Analyze the following document information and categorize it for a construction project management system.
+            
+            FileName: ${fileName}
+            ContentSnippet: ${contentSnippet}
+            
+            Please identify:
+            1. Client (e.g., Acme Corp, Global Build, Metro Infrastructure, etc.)
+            2. Product (e.g., Heavy Machinery, Safety Equipment, Building Materials, etc.)
+            3. Domain (e.g., Regulations, Contracts, Technical Specifications, etc.)
+            
+            Return ONLY a valid JSON object with the following structure:
+            {
+              "client": "Name of Client or null",
+              "product": "Name of Product Category or null",
+              "domain": "Name of Domain Category or null",
+              "confidence": 0.0 to 1.0 (numeric value)
             }
-        }
+        `;
 
-        // Triage by Product
-        for (const product of this.productKeywords) {
-            if (combinedText.includes(product.toLowerCase())) {
-                result.product = product;
-                result.confidence += 0.3;
+        try {
+            const result = await this.model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+
+            // Extract JSON from response (handling potential markdown blocks or extra text)
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                return {
+                    client: parsed.client || undefined,
+                    product: parsed.product || undefined,
+                    domain: parsed.domain || undefined,
+                    confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5
+                };
             }
-        }
 
-        // Triage by Domain
-        for (const domain of this.domainKeywords) {
-            if (combinedText.includes(domain.toLowerCase())) {
-                result.domain = domain;
-                result.confidence += 0.3;
-            }
+            return { confidence: 0 };
+        } catch (error) {
+            console.error("AI Triage Error:", error);
+            // Fallback to minimal result
+            return { confidence: 0 };
         }
-
-        return result;
     }
 }
+

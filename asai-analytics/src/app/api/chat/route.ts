@@ -4,7 +4,7 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 export async function POST(req: NextRequest) {
     try {
@@ -40,7 +40,39 @@ export async function POST(req: NextRequest) {
       ${context || "No context found."}
     `;
 
-        const result = await model.generateContent(prompt);
+        const modelsToTry = [
+            "gemini-flash-latest",
+            "gemini-1.5-flash-latest",
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-pro-latest"
+        ];
+
+        let result;
+        let lastError: any;
+
+        for (const modelName of modelsToTry) {
+            try {
+                console.log(`Trying AI model: ${modelName}...`);
+                const currentModel = genAI.getGenerativeModel({ model: modelName });
+                result = await currentModel.generateContent(prompt);
+                if (result) break;
+            } catch (err: any) {
+                lastError = err;
+                console.error(`Model ${modelName} failed:`, err.message);
+                // If it's a 404 or 429, try the next model
+                if (err.message.includes("404") || err.message.includes("429") || err.message.includes("quota")) {
+                    continue;
+                } else {
+                    throw err; // Re-throw other types of errors
+                }
+            }
+        }
+
+        if (!result && lastError) {
+            throw lastError;
+        }
+
         const response = await result.response.text();
 
         return NextResponse.json({
@@ -49,7 +81,14 @@ export async function POST(req: NextRequest) {
         });
 
     } catch (error: any) {
-        console.error("Chat API error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error("Chat API error details:", {
+            message: error.message,
+            stack: error.stack,
+            code: error.code
+        });
+        return NextResponse.json({
+            error: error.message,
+            details: "Check server logs for full stack trace"
+        }, { status: 500 });
     }
 }

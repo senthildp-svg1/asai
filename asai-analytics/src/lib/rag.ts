@@ -1,12 +1,15 @@
 /**
  * Asai Analytics RAG Engine
- * Handles multimodal extraction and indexing using Gemini 1.5 Pro
+ * Handles multimodal extraction and indexing using Gemini
  */
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { db } from "./firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+// Use 1.5-flash for faster extraction and better compatibility
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 export interface ExtractedData {
     text: string;
@@ -27,15 +30,14 @@ export class RAGEngine {
     async processDocument(fileBuffer: Buffer, fileName: string, mimeType: string): Promise<ExtractedData> {
         console.log(`Processing multimodal document: ${fileName} (${mimeType})`);
 
-        // Prepare prompt for construction domain intelligence
         const prompt = `
       Analyze this construction document/media and extract high-fidelity intelligence.
       1. TEXT: Extract all relevant textual information.
       2. TABLES: Convert any tables into structured JSON format.
       3. VISUALS: If it's an image or video, describe site conditions, progress, or safety observations.
-      4. CLASSIFICATION: Identify the Client, Product, or Domain if mentioned.
+      4. CLASSIFICATION: Identify the Client (e.g., Acme Corp), Product, or Domain if mentioned.
       
-      Output the result as a strictly formatted JSON object.
+      Output the result as a strictly formatted JSON object with keys: text, tables, visualObservations, client, product, domain.
     `;
 
         try {
@@ -50,7 +52,6 @@ export class RAGEngine {
             ]);
 
             const responseText = result.response.text();
-            // Parse JSON from response (handling potential markdown formatting)
             const cleanedJson = responseText.replace(/```json|```/g, "").trim();
             const parsedData = JSON.parse(cleanedJson);
 
@@ -72,11 +73,23 @@ export class RAGEngine {
     }
 
     /**
-     * Index data into Vector Store (Mock implementation for now)
+     * Index data into Firestore
      */
     async indexData(data: ExtractedData) {
-        console.log(`Indexing document ${data.metadata.fileName} into vector store...`);
-        // In a real implementation, this would call Firestore Vector Search or Pinecone
-        return true;
+        console.log(`Indexing document ${data.metadata.fileName} into Firestore...`);
+        try {
+            const docRef = await addDoc(collection(db, "documents"), {
+                text: data.text,
+                tables: data.tables,
+                visualObservations: data.visualObservations,
+                metadata: data.metadata,
+                indexedAt: serverTimestamp()
+            });
+            console.log(`Document indexed with ID: ${docRef.id}`);
+            return true;
+        } catch (error) {
+            console.error("Error indexing document:", error);
+            throw error;
+        }
     }
 }
