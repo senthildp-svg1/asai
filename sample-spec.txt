@@ -1,0 +1,21 @@
+# PROJECT SPECIFICATION: METRO INFRASTRUCTURE UPGRADE
+## CLIENT: Metro Infrastructure
+## PRODUCT: Heavy Machinery - Excavator XE-200
+
+### 1. Overview
+This document outlines the safety and technical specifications for the use of XE-200 Excavators on the Downtown Metro Project.
+
+### 2. Technical Data
+| Feature | Specification |
+|---------|---------------|
+| Engine  | 150 kW Turbo  |
+| Weight  | 22,000 kg     |
+| Reach   | 9.8 meters    |
+
+### 3. Safety Observations
+- Ensure all operators have valid Level 2 Certifications.
+- Daily hydraulic check is mandatory before operation.
+- Use only Global Build certified replacement parts for the XE-200 series.
+
+### 4. Site Conditions
+Site photos show stable soil composition but the presence of high groundwater at Zone C requires additional shoring.

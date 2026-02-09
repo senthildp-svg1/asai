@@ -8,8 +8,8 @@ import { db } from "./firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-// Use 1.5-flash for faster extraction and better compatibility
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const modelsToTry = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest"];
+
 
 export interface ExtractedData {
     text: string;
@@ -41,15 +41,34 @@ export class RAGEngine {
     `;
 
         try {
-            const result = await model.generateContent([
-                prompt,
-                {
-                    inlineData: {
-                        data: fileBuffer.toString("base64"),
-                        mimeType: mimeType,
-                    },
-                },
-            ]);
+            let result;
+            let lastError;
+
+            for (const modelName of modelsToTry) {
+                try {
+                    console.log(`Trying RAG model: ${modelName}...`);
+                    const currentModel = genAI.getGenerativeModel({ model: modelName });
+                    result = await currentModel.generateContent([
+                        prompt,
+                        {
+                            inlineData: {
+                                data: fileBuffer.toString("base64"),
+                                mimeType: mimeType,
+                            },
+                        },
+                    ]);
+                    if (result) break;
+                } catch (err: any) {
+                    lastError = err;
+                    if (err.message.includes("404") || err.message.includes("429")) {
+                        continue;
+                    }
+                    throw err;
+                }
+            }
+
+            if (!result && lastError) throw lastError;
+
 
             const responseText = result.response.text();
             const cleanedJson = responseText.replace(/```json|```/g, "").trim();
