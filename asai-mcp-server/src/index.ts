@@ -7,6 +7,7 @@ import {
 import { OneDriveClient } from "./onedrive.js";
 import { GoogleDriveClient } from "./googledrive.js";
 import { TriageEngine } from "./triage.js";
+import { getUserConfig } from "./config.js";
 
 import * as dotenv from "dotenv";
 
@@ -15,7 +16,7 @@ dotenv.config();
 const server = new Server(
     {
         name: "asai-analytics-mcp",
-        version: "1.0.0",
+        version: "1.2.0",
     },
     {
         capabilities: {
@@ -24,7 +25,6 @@ const server = new Server(
     }
 );
 
-const onedrive = new OneDriveClient();
 const triageEngine = new TriageEngine();
 
 /**
@@ -40,6 +40,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     type: "object",
                     properties: {
                         folderId: { type: "string", description: "Optional folder ID to filter" },
+                        userId: { type: "string", description: "The authorized User ID for the request" },
                     },
                 },
             },
@@ -51,9 +52,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     properties: {
                         fileId: { type: "string" },
                         fileName: { type: "string" },
+                        userId: { type: "string", description: "The authorized User ID for the request" },
                     },
                     required: ["fileId", "fileName"],
                 },
+            },
             {
                 name: "list_gdrive_files",
                 description: "List files from Google Drive folders",
@@ -61,6 +64,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     type: "object",
                     properties: {
                         folderId: { type: "string", description: "Optional Google Drive folder ID" },
+                        userId: { type: "string", description: "The authorized User ID for the request" },
                     },
                 },
             },
@@ -72,6 +76,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     properties: {
                         fileId: { type: "string" },
                         fileName: { type: "string" },
+                        userId: { type: "string", description: "The authorized User ID for the request" },
                     },
                     required: ["fileId", "fileName"],
                 },
@@ -80,27 +85,49 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     };
 });
 
+
 /**
  * Handle Tool Calls
  */
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
+    const userId = args?.userId as string | undefined;
 
     try {
+        const config = await getUserConfig(userId);
+
         if (name === "list_onedrive_files") {
+            const onedrive = new OneDriveClient(config.microsoft!);
             const files = await onedrive.listFiles((args?.folderId as string) || "root");
             return {
                 content: [{ type: "text", text: JSON.stringify(files, null, 2) }],
             };
         }
 
+        if (name === "triage_document") {
+            const fileId = args?.fileId as string;
+            const fileName = args?.fileName as string;
+            const onedrive = new OneDriveClient(config.microsoft!);
+
+            const content = await onedrive.getFileContent(fileId);
+            const snippet = content.toString().substring(0, 1000);
+
+            const result = await triageEngine.triage(fileName, snippet, config.geminiApiKey);
+
+            return {
+                content: [{
+                    type: "text",
+                    text: `Triage complete for ${fileName}:\n` +
+                        `- Client: ${result.client || 'N/A'}\n` +
+                        `- Product: ${result.product || 'N/A'}\n` +
+                        `- Domain: ${result.domain || 'N/A'}\n` +
+                        `- Confidence: ${(result.confidence * 100).toFixed(1)}%`
+                }],
+            };
+        }
+
         if (name === "list_gdrive_files") {
-            const gdrive = new GoogleDriveClient({
-                clientId: process.env.GOOGLE_CLIENT_ID || '',
-                clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-                redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost',
-                refreshToken: process.env.GOOGLE_REFRESH_TOKEN || '',
-            });
+            const gdrive = new GoogleDriveClient(config.google!);
             const files = await gdrive.listFiles((args?.folderId as string) || undefined);
             return {
                 content: [{ type: "text", text: JSON.stringify(files, null, 2) }],
@@ -111,17 +138,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const fileId = args?.fileId as string;
             const fileName = args?.fileName as string;
 
-            const gdrive = new GoogleDriveClient({
-                clientId: process.env.GOOGLE_CLIENT_ID || '',
-                clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-                redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost',
-                refreshToken: process.env.GOOGLE_REFRESH_TOKEN || '',
-            });
-
+            const gdrive = new GoogleDriveClient(config.google!);
             const content = await gdrive.getFileContent(fileId);
             const snippet = content.slice(0, 1000).toString();
 
-            const result = await triageEngine.triage(fileName, snippet);
+            const result = await triageEngine.triage(fileName, snippet, config.geminiApiKey);
 
             return {
                 content: [{

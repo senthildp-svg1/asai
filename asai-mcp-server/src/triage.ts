@@ -8,18 +8,15 @@ export interface TriageResult {
 }
 
 export class TriageEngine {
-    private genAI: GoogleGenerativeAI;
-    private model: any;
-
-    constructor() {
-        this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-        this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    }
 
     /**
      * Triage a document based on its name and content snippet using AI
      */
-    async triage(fileName: string, contentSnippet: string): Promise<TriageResult> {
+    async triage(fileName: string, contentSnippet: string, apiKey?: string): Promise<TriageResult> {
+        const currentApiKey = apiKey || process.env.GEMINI_API_KEY || '';
+        const genAI = new GoogleGenerativeAI(currentApiKey);
+        // Use 1.5-flash for efficient classification
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         const prompt = `
             Analyze the following document information and categorize it for a construction project management system.
             
