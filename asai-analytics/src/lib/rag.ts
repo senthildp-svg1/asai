@@ -7,8 +7,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db } from "./firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const modelsToTry = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest"];
+
 
 
 export interface ExtractedData {
@@ -27,8 +27,12 @@ export class RAGEngine {
     /**
      * Processes a multimodal document (PDF, Image, or Video)
      */
-    async processDocument(fileBuffer: Buffer, fileName: string, mimeType: string): Promise<ExtractedData> {
+    async processDocument(fileBuffer: Buffer, fileName: string, mimeType: string, apiKey?: string): Promise<ExtractedData> {
         console.log(`Processing multimodal document: ${fileName} (${mimeType})`);
+
+        const currentApiKey = apiKey || process.env.GEMINI_API_KEY || "";
+        const genAI = new GoogleGenerativeAI(currentApiKey);
+
 
         const prompt = `
       Analyze this construction document/media and extract high-fidelity intelligence.

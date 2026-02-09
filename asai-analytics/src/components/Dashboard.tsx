@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import ChatInterface from '@/components/ChatInterface';
 import LiveTriage from '@/components/LiveTriage';
+import Settings from '@/components/Settings';
 import { auth, db } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
@@ -12,6 +13,8 @@ export default function Dashboard() {
     const [activeItem, setActiveItem] = React.useState('Acme Corp');
     const [docCount, setDocCount] = useState(0);
     const [riskLevel, setRiskLevel] = useState<'Low' | 'Medium' | 'High'>('Low');
+    const [activeView, setActiveView] = useState<'dashboard' | 'settings'>('dashboard');
+
 
     useEffect(() => {
         // Doc count listener
@@ -85,8 +88,15 @@ export default function Dashboard() {
                                 className="bg-transparent border-none outline-none text-xs w-48 text-text-primary"
                             />
                         </div>
-                        <div className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center border border-slate-700 cursor-pointer hover:bg-slate-700 transition-fast">
+                        <div className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center border border-slate-700 cursor-pointer hover:bg-slate-700 transition-fast" title="Notifications">
                             🔔
+                        </div>
+                        <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center border cursor-pointer transition-fast ${activeView === 'settings' ? 'bg-accent-cyan/20 border-accent-cyan/50' : 'bg-slate-800/50 border-slate-700 hover:bg-slate-700'}`}
+                            onClick={() => setActiveView(activeView === 'dashboard' ? 'settings' : 'dashboard')}
+                            title="Settings"
+                        >
+                            ⚙️
                         </div>
                         <div className="flex items-center gap-3 pl-2 border-l border-slate-800">
                             <div className="flex flex-col items-end hidden lg:flex">
@@ -108,10 +118,19 @@ export default function Dashboard() {
 
             {/* Main Content Area */}
             <div className="flex w-full pt-16 h-full relative z-10">
-                <Sidebar activeItem={activeItem} setActiveItem={setActiveItem} />
+                <Sidebar activeItem={activeItem} setActiveItem={(item) => {
+                    setActiveItem(item);
+                    setActiveView('dashboard');
+                }} />
                 <main className="flex-1 flex overflow-hidden">
-                    <ChatInterface clientHint={activeItem} />
-                    <LiveTriage />
+                    {activeView === 'dashboard' ? (
+                        <>
+                            <ChatInterface clientHint={activeItem} />
+                            <LiveTriage />
+                        </>
+                    ) : (
+                        <Settings />
+                    )}
                 </main>
             </div>
         </div>

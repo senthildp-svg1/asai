@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from 'react';
+import { auth } from '@/lib/firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -20,6 +22,8 @@ interface ChatInterfaceProps {
 }
 
 export default function ChatInterface({ clientHint }: ChatInterfaceProps) {
+    const [user] = useAuthState(auth);
+
     const [messages, setMessages] = useState<Message[]>([
         {
             role: 'user',
@@ -61,8 +65,10 @@ export default function ChatInterface({ clientHint }: ChatInterfaceProps) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     query: currentInput,
-                    clientHint: clientHint
+                    clientHint: clientHint,
+                    userId: user?.uid
                 })
+
             });
 
             if (!response.ok) {

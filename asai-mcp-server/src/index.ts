@@ -5,7 +5,9 @@ import {
     ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { OneDriveClient } from "./onedrive.js";
+import { GoogleDriveClient } from "./googledrive.js";
 import { TriageEngine } from "./triage.js";
+
 import * as dotenv from "dotenv";
 
 dotenv.config();
@@ -52,6 +54,27 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     },
                     required: ["fileId", "fileName"],
                 },
+            {
+                name: "list_gdrive_files",
+                description: "List files from Google Drive folders",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        folderId: { type: "string", description: "Optional Google Drive folder ID" },
+                    },
+                },
+            },
+            {
+                name: "triage_gdrive_document",
+                description: "Fetch and triage a specific document from Google Drive",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        fileId: { type: "string" },
+                        fileName: { type: "string" },
+                    },
+                    required: ["fileId", "fileName"],
+                },
             },
         ],
     };
@@ -71,19 +94,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             };
         }
 
-        if (name === "triage_document") {
+        if (name === "list_gdrive_files") {
+            const gdrive = new GoogleDriveClient({
+                clientId: process.env.GOOGLE_CLIENT_ID || '',
+                clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+                redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost',
+                refreshToken: process.env.GOOGLE_REFRESH_TOKEN || '',
+            });
+            const files = await gdrive.listFiles((args?.folderId as string) || undefined);
+            return {
+                content: [{ type: "text", text: JSON.stringify(files, null, 2) }],
+            };
+        }
+
+        if (name === "triage_gdrive_document") {
             const fileId = args?.fileId as string;
             const fileName = args?.fileName as string;
 
-            const content = await onedrive.getFileContent(fileId);
-            const snippet = content.toString().substring(0, 1000);
+            const gdrive = new GoogleDriveClient({
+                clientId: process.env.GOOGLE_CLIENT_ID || '',
+                clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+                redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost',
+                refreshToken: process.env.GOOGLE_REFRESH_TOKEN || '',
+            });
+
+            const content = await gdrive.getFileContent(fileId);
+            const snippet = content.slice(0, 1000).toString();
 
             const result = await triageEngine.triage(fileName, snippet);
 
             return {
                 content: [{
                     type: "text",
-                    text: `Triage complete for ${fileName}:\n` +
+                    text: `Triage complete for Google Drive file ${fileName}:\n` +
                         `- Client: ${result.client || 'N/A'}\n` +
                         `- Product: ${result.product || 'N/A'}\n` +
                         `- Domain: ${result.domain || 'N/A'}\n` +

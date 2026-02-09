@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { seedDatabase } from '@/lib/seed-util';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 
@@ -18,25 +17,12 @@ interface Category {
 
 export default function Sidebar({ activeItem, setActiveItem }: SidebarProps) {
     const [searchQuery, setSearchQuery] = useState('');
-    const [isSeeding, setIsSeeding] = useState(false);
     const [categories, setCategories] = useState<Category[]>([
         { name: 'CLIENTS', count: '0', items: [] },
         { name: 'PRODUCTS', count: '0', items: [] },
         { name: 'DOMAIN', count: '0', items: [] },
     ]);
 
-    const handleSeed = async () => {
-        setIsSeeding(true);
-        try {
-            await seedDatabase();
-            alert("Database seeded successfully!");
-        } catch (error: any) {
-            console.error("Seeding error:", error);
-            alert("Seeding failed: " + error.message);
-        } finally {
-            setIsSeeding(false);
-        }
-    };
 
     useEffect(() => {
 
@@ -115,15 +101,6 @@ export default function Sidebar({ activeItem, setActiveItem }: SidebarProps) {
                 ))}
             </nav>
 
-            <div className="mt-4 flex flex-col gap-2">
-                <button
-                    onClick={handleSeed}
-                    disabled={isSeeding}
-                    className="w-full py-2 rounded-lg bg-accent-orange/20 border border-accent-orange/40 text-[10px] text-accent-orange font-bold uppercase tracking-widest hover:bg-accent-orange/30 transition-fast disabled:opacity-50"
-                >
-                    {isSeeding ? 'Seeding...' : 'Seed Database'}
-                </button>
-            </div>
 
             <div className="mt-auto p-4 glass-card border-slate-700/30 text-[10px] flex flex-col gap-3 bg-slate-900/40">
                 <div className="flex justify-between items-center">

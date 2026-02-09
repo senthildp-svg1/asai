@@ -3,12 +3,24 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+import { adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
     try {
-        const { query: userQuery, clientHint } = await req.json();
+        const { query: userQuery, clientHint, userId } = await req.json();
+
+        // 0. Dynamic Configuration: Get user's Gemini API Key if available
+        let userGeminiKey = process.env.GEMINI_API_KEY;
+        if (userId) {
+            const configSnap = await adminDb.collection('userConfigs').doc(userId).get();
+            if (configSnap.exists && configSnap.data()?.geminiApiKey) {
+                userGeminiKey = configSnap.data()?.geminiApiKey;
+                console.log("Using user-specific Gemini API Key for request.");
+            }
+        }
+
+        const genAI = new GoogleGenerativeAI(userGeminiKey || "");
+
 
         if (!userQuery) {
             return NextResponse.json({ error: "Query is required" }, { status: 400 });
