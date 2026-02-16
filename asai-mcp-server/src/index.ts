@@ -1,5 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import express from "express";
 import {
     CallToolRequestSchema,
     ListToolsRequestSchema,
@@ -13,6 +14,7 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
+const app = express();
 const server = new Server(
     {
         name: "asai-analytics-mcp",
@@ -165,13 +167,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 });
 
-async function main() {
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
-    console.error("Asai Analytics MCP Server running on stdio");
-}
+let transport: SSEServerTransport;
 
-main().catch((error) => {
-    console.error("Server error:", error);
-    process.exit(1);
+app.get("/sse", async (req, res) => {
+    transport = new SSEServerTransport("/messages", res);
+    await server.connect(transport);
+});
+
+app.post("/messages", async (req, res) => {
+    if (transport) {
+        await transport.handlePostMessage(req, res);
+    } else {
+        res.status(400).send("No active SSE connection");
+    }
+});
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+    console.error(`Asai Analytics MCP Server running on port ${PORT}`);
 });
