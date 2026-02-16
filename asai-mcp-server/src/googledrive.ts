@@ -1,5 +1,4 @@
 import { google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
 
 /**
  * Google Drive Integration Utility
@@ -14,7 +13,7 @@ export interface GoogleDriveConfig {
 }
 
 export class GoogleDriveClient {
-    private oauth2Client: OAuth2Client;
+    private oauth2Client: any;
     private drive: any;
 
     constructor(config: GoogleDriveConfig) {
