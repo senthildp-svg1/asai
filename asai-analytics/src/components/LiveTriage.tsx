@@ -39,7 +39,7 @@ export default function LiveTriage() {
 
 
     return (
-        <aside className="w-80 h-full flex flex-col p-6 gap-6 bg-secondary/30 backdrop-blur-2xl">
+        <aside className="w-full h-full flex flex-col p-6 gap-6 bg-secondary/30 backdrop-blur-2xl">
             <div className="flex justify-between items-center px-1">
                 <h3 className="text-white/60 text-[10px] font-bold tracking-[0.2em] uppercase">Live Triage</h3>
                 <span className="text-slate-700 text-[10px] cursor-pointer hover:text-white transition-fast">•••</span>

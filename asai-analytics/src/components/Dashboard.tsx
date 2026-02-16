@@ -14,6 +14,8 @@ export default function Dashboard() {
     const [docCount, setDocCount] = useState(0);
     const [riskLevel, setRiskLevel] = useState<'Low' | 'Medium' | 'High'>('Low');
     const [activeView, setActiveView] = useState<'dashboard' | 'settings'>('dashboard');
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [activePanelView, setActivePanelView] = useState<'chat' | 'triage'>('chat');
 
 
     useEffect(() => {
@@ -52,9 +54,15 @@ export default function Dashboard() {
             {/* Main Header */}
             <header className="fixed top-0 left-0 right-0 h-16 border-b border-slate-800/50 flex items-center justify-between px-6 z-50 bg-secondary/80 backdrop-blur-md">
                 <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        className="lg:hidden text-white p-2 hover:bg-white/10 rounded-lg transition-fast"
+                    >
+                        {isMobileMenuOpen ? '✕' : '☰'}
+                    </button>
                     <div className="flex items-center gap-2">
                         <span className="text-accent-orange font-bold text-2xl">A</span>
-                        <h1 className="text-white font-bold tracking-tight text-lg">Asai Analytics: Project Status</h1>
+                        <h1 className="text-white font-bold tracking-tight text-sm md:text-lg whitespace-nowrap">Asai Analytics</h1>
                     </div>
                 </div>
 
@@ -117,19 +125,48 @@ export default function Dashboard() {
             </header>
 
             {/* Main Content Area */}
-            <div className="flex w-full h-full relative z-10" style={{ marginTop: '80px', paddingTop: '20px' }}>
-                <Sidebar activeItem={activeItem} setActiveItem={(item) => {
-                    setActiveItem(item);
-                    setActiveView('dashboard');
-                }} />
-                <main className="flex-1 flex overflow-hidden">
+            <div className="flex w-full h-full relative z-10 overflow-hidden" style={{ marginTop: '64px' }}>
+                {/* Mobile Sidebar Overlay */}
+                <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMobileMenuOpen(false)}></div>
+
+                <div className={`fixed inset-y-0 left-0 z-[70] lg:relative lg:z-30 transition-transform duration-300 lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                    <Sidebar activeItem={activeItem} setActiveItem={(item) => {
+                        setActiveItem(item);
+                        setActiveView('dashboard');
+                        setIsMobileMenuOpen(false);
+                    }} />
+                </div>
+
+                <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
                     {activeView === 'dashboard' ? (
                         <>
-                            <ChatInterface clientHint={activeItem} />
-                            <LiveTriage />
+                            {/* Mobile View Toggle */}
+                            <div className="lg:hidden flex border-b border-slate-800/40 bg-secondary/40 shrink-0">
+                                <button
+                                    onClick={() => setActivePanelView('chat')}
+                                    className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-fast ${activePanelView === 'chat' ? 'text-accent-cyan border-b-2 border-accent-cyan bg-accent-cyan/5' : 'text-slate-500'}`}
+                                >
+                                    Chat Assistant
+                                </button>
+                                <button
+                                    onClick={() => setActivePanelView('triage')}
+                                    className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-fast ${activePanelView === 'triage' ? 'text-accent-cyan border-b-2 border-accent-cyan bg-accent-cyan/5' : 'text-slate-500'}`}
+                                >
+                                    Live Triage
+                                </button>
+                            </div>
+
+                            <div className={`flex-1 h-full lg:flex ${activePanelView === 'chat' ? 'flex' : 'hidden lg:flex'}`}>
+                                <ChatInterface clientHint={activeItem} />
+                            </div>
+                            <div className={`w-full lg:w-80 h-full lg:flex ${activePanelView === 'triage' ? 'flex' : 'hidden lg:flex'}`}>
+                                <LiveTriage />
+                            </div>
                         </>
                     ) : (
-                        <Settings />
+                        <div className="flex-1 overflow-y-auto">
+                            <Settings />
+                        </div>
                     )}
                 </main>
             </div>

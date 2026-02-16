@@ -89,11 +89,10 @@ export default function Sidebar({ activeItem, setActiveItem }: SidebarProps) {
 
     return (
         <aside
-            className="w-80 h-full flex flex-col p-6 gap-6 border-r border-slate-800/40 relative z-30 shrink-0"
+            className="w-[280px] md:w-80 h-full flex flex-col p-4 md:p-6 gap-6 border-r border-slate-800/40 relative z-30 shrink-0"
             style={{
                 backgroundColor: '#05070a',
                 zIndex: 30,
-                paddingTop: '40px' // Added extra padding here
             }}
         >
             {/* 1. SEARCH & CATEGORIES HEADER */}
