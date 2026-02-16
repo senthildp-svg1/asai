@@ -1,14 +1,13 @@
-```typescript
 import admin from "firebase-admin";
 
 // Initialize Firebase Admin with project ID from environment or default
 if (!admin.apps.length) {
     const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
-    
+
     console.error("--- Firebase Initialization Debug ---");
     if (serviceAccountVar) {
-        console.error(`FIREBASE_SERVICE_ACCOUNT found(Length: ${ serviceAccountVar.length })`);
-        console.error(`Starts with: ${ serviceAccountVar.substring(0, 10) }...`);
+        console.error(`FIREBASE_SERVICE_ACCOUNT found (Length: ${serviceAccountVar.length})`);
+        console.error(`Starts with: ${serviceAccountVar.substring(0, 10)}...`);
         try {
             const serviceAccount = JSON.parse(serviceAccountVar);
             admin.initializeApp({
@@ -95,7 +94,7 @@ export async function getUserConfig(userId?: string): Promise<UserProviderConfig
             }
         }
     } catch (error) {
-        console.error(`Error fetching user config for ${ userId }: `, error);
+        console.error(`Error fetching user config for ${userId}:`, error);
     }
 
     return config;
