@@ -1,30 +1,35 @@
+```typescript
 import admin from "firebase-admin";
 
 // Initialize Firebase Admin with project ID from environment or default
 if (!admin.apps.length) {
     const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
-
+    
+    console.error("--- Firebase Initialization Debug ---");
     if (serviceAccountVar) {
-        console.error("FIREBASE_SERVICE_ACCOUNT detected. Attempting to parse...");
+        console.error(`FIREBASE_SERVICE_ACCOUNT found(Length: ${ serviceAccountVar.length })`);
+        console.error(`Starts with: ${ serviceAccountVar.substring(0, 10) }...`);
         try {
             const serviceAccount = JSON.parse(serviceAccountVar);
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount),
                 projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id
             });
-            console.error("Firebase initialized successfully with Service Account.");
+            console.error("SUCCESS: Firebase initialized with Service Account.");
         } catch (e: any) {
-            console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT JSON: " + e.message);
-            admin.initializeApp({
-                projectId: process.env.FIREBASE_PROJECT_ID || 'asai-analytics',
-            });
+            console.error("CRITICAL ERROR: Failed to parse FIREBASE_SERVICE_ACCOUNT JSON!");
+            console.error("Error Message: " + e.message);
+            // Don't fall back to default, it will just fail later with confusing errors
+            throw new Error("Could not initialize Firebase: Malformed Service Account JSON.");
         }
     } else {
-        console.error("FIREBASE_SERVICE_ACCOUNT not found in environment. Falling back to default.");
+        console.error("CRITICAL ERROR: FIREBASE_SERVICE_ACCOUNT is MISSING from environment!");
+        console.error("Please add it to Render -> Environment Variables.");
         admin.initializeApp({
             projectId: process.env.FIREBASE_PROJECT_ID || 'asai-analytics',
         });
     }
+    console.error("--------------------------------------");
 }
 
 export const db = admin.firestore();
@@ -90,7 +95,7 @@ export async function getUserConfig(userId?: string): Promise<UserProviderConfig
             }
         }
     } catch (error) {
-        console.error(`Error fetching user config for ${userId}:`, error);
+        console.error(`Error fetching user config for ${ userId }: `, error);
     }
 
     return config;
