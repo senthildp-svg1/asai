@@ -2,9 +2,26 @@ import admin from "firebase-admin";
 
 // Initialize Firebase Admin with project ID from environment or default
 if (!admin.apps.length) {
-    admin.initializeApp({
-        projectId: process.env.FIREBASE_PROJECT_ID || 'asai-analytics',
-    });
+    const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+    if (serviceAccountVar) {
+        try {
+            const serviceAccount = JSON.parse(serviceAccountVar);
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount),
+                projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id
+            });
+        } catch (e) {
+            console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT env var. Falling back to default.");
+            admin.initializeApp({
+                projectId: process.env.FIREBASE_PROJECT_ID || 'asai-analytics',
+            });
+        }
+    } else {
+        admin.initializeApp({
+            projectId: process.env.FIREBASE_PROJECT_ID || 'asai-analytics',
+        });
+    }
 }
 
 export const db = admin.firestore();
