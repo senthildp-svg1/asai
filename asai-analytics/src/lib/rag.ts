@@ -20,6 +20,8 @@ export interface ExtractedData {
         product?: string;
         domain?: string;
         fileName: string;
+        userId?: string;
+        source?: string;
     };
 }
 
@@ -72,7 +74,7 @@ export class RAGEngine {
             }
 
             if (!result && lastError) throw lastError;
-
+            if (!result) throw new Error("No result generated from Gemini models.");
 
             const responseText = result.response.text();
             const cleanedJson = responseText.replace(/```json|```/g, "").trim();

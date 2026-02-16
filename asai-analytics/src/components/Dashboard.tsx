@@ -117,7 +117,7 @@ export default function Dashboard() {
             </header>
 
             {/* Main Content Area */}
-            <div className="flex w-full pt-16 h-full relative z-10">
+            <div className="flex w-full h-full relative z-10" style={{ marginTop: '80px', paddingTop: '20px' }}>
                 <Sidebar activeItem={activeItem} setActiveItem={(item) => {
                     setActiveItem(item);
                     setActiveView('dashboard');

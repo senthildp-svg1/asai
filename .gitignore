@@ -47,3 +47,15 @@ asai-analytics/next-env.d.ts
 
 # MCP server specific
 asai-mcp-server/dist/
+asai-mcp-server/*.log
+
+# Project specific exclusions
+asai-analytics/*.jpg
+asai-analytics/test-*.js
+asai-analytics/models_check.json
+asai-analytics/sync_log.txt
+asai-analytics/test_*.jpg
+asai-analytics/user_*.jpg
+asai-analytics/v_*.jpg
+asai-analytics/t*.jpg
+asai-analytics/diag_*.jpg

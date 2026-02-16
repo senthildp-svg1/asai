@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { db, auth } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, doc, getDoc, getDocs, writeBatch, setDoc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 
 export default function Settings() {
@@ -17,6 +17,7 @@ export default function Settings() {
         googleClientId: '',
         googleClientSecret: '',
         googleRefreshToken: '',
+        googleFolderId: '',
         msClientId: '',
         msClientSecret: '',
         msTenantId: 'common'
@@ -42,21 +43,94 @@ export default function Settings() {
     }, [user]);
 
     const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
+        e.preventDefault(); // Keep e.preventDefault() for form submission
         if (!user) return;
         setSaving(true);
-        setSuccess(false);
+        setSuccess(false); // Reset success state
 
         try {
-            await setDoc(doc(db, 'userConfigs', user.uid), {
-                ...config,
-                updatedAt: new Date().toISOString()
+            await setDoc(doc(db, "userConfigs", user.uid), {
+                geminiApiKey: config.geminiApiKey,
+                googleClientId: config.googleClientId,
+                googleClientSecret: config.googleClientSecret,
+                googleRefreshToken: config.googleRefreshToken,
+                googleFolderId: config.googleFolderId,
+                msClientId: config.msClientId,
+                msClientSecret: config.msClientSecret,
+                msTenantId: config.msTenantId,
+                updatedAt: new Date().toISOString() // Keep updatedAt
             });
-            setSuccess(true);
-            setTimeout(() => setSuccess(false), 3000);
+            setSuccess(true); // Set success state
+            setTimeout(() => setSuccess(false), 3000); // Clear success state after 3 seconds
         } catch (error) {
-            console.error("Error saving config:", error);
+            console.error("Error saving config:", error); // Use config in error message
             alert("Failed to save settings.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDisconnect = async () => {
+        if (!user) return;
+        if (!confirm("Are you sure you want to disconnect Google Drive? This will clear your credentials.")) return;
+
+        setSaving(true);
+        try {
+            const newConfig = {
+                ...config,
+                googleClientId: '',
+                googleClientSecret: '',
+                googleRefreshToken: '',
+                googleFolderId: ''
+            };
+            setConfig(newConfig);
+
+            await setDoc(doc(db, "userConfigs", user.uid), {
+                geminiApiKey: config.geminiApiKey,
+                googleClientId: '',
+                googleClientSecret: '',
+                googleRefreshToken: '',
+                googleFolderId: '',
+                msClientId: config.msClientId,
+                msClientSecret: config.msClientSecret,
+                msTenantId: config.msTenantId,
+                updatedAt: new Date().toISOString() // Add updatedAt for consistency
+            });
+            setSuccess(true); // Indicate success
+            setTimeout(() => setSuccess(false), 3000); // Clear success state
+        } catch (error) {
+            console.error("Error disconnecting Google Drive:", error);
+            alert("Failed to disconnect.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleWipeData = async () => {
+        if (!user) return;
+        if (!confirm("CRITICAL: This will permanently delete ALL indexed documents and sync logs. This cannot be undone. Proceed?")) return;
+
+        setSaving(true);
+        try {
+            const batch = writeBatch(db);
+
+            // Delete all documents
+            const docsSnap = await getDocs(collection(db, "documents"));
+            docsSnap.forEach((d) => {
+                batch.delete(doc(db, "documents", d.id));
+            });
+
+            // Delete all activities (sync logs)
+            const activitiesSnap = await getDocs(collection(db, "activities"));
+            activitiesSnap.forEach((d) => {
+                batch.delete(doc(db, "activities", d.id));
+            });
+
+            await batch.commit();
+            alert("All synced data has been successfully wiped.");
+        } catch (error) {
+            console.error("Error wiping data:", error);
+            alert("Failed to wipe data.");
         } finally {
             setSaving(false);
         }
@@ -136,6 +210,50 @@ export default function Settings() {
                                     className="bg-slate-950 border border-slate-800 p-3 rounded-lg text-sm text-white focus:border-accent-cyan/50 outline-none transition-fast font-mono"
                                 />
                                 <p className="text-[10px] text-slate-500 italic">Required for continuous monitoring of project files.</p>
+                            </div>
+                            <div className="flex flex-col gap-2 md:col-span-2">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Restrict to Folder ID (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={config.googleFolderId}
+                                    onChange={(e) => setConfig({ ...config, googleFolderId: e.target.value })}
+                                    placeholder="e.g. 1abc123-xYZ..."
+                                    className="bg-slate-950 border border-slate-800 p-3 rounded-lg text-sm text-white focus:border-accent-cyan/50 outline-none transition-fast font-mono"
+                                />
+                                <p className="text-[10px] text-slate-500 italic">If left blank, the app will scan your entire Google Drive.</p>
+                            </div>
+                            <div className="flex justify-end mt-2 md:col-span-2">
+                                <button
+                                    onClick={handleDisconnect}
+                                    className="px-4 py-2 rounded-lg bg-red-900/20 text-red-400 hover:bg-red-900/40 border border-red-900/30 transition-fast text-xs font-bold"
+                                >
+                                    Disconnect Google Drive
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Data Management Section */}
+                    <section className="p-8 border-b border-slate-800/50">
+                        <div className="flex flex-col gap-6">
+                            <div className="flex flex-col gap-1">
+                                <h3 className="text-white font-bold text-sm flex items-center gap-2">
+                                    <span className="text-red-500">🗑️</span> Data Management
+                                </h3>
+                                <p className="text-xs text-slate-500 tracking-wide font-medium">Clear your project footprint and cached intelligence.</p>
+                            </div>
+
+                            <div className="glass-card p-6 border-red-900/20 bg-red-950/10 rounded-xl flex items-center justify-between gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <p className="text-sm font-bold text-red-200">Wipe All Synced Data</p>
+                                    <p className="text-[10px] text-red-400/70 italic">Deletes all documents, extracted intelligence, and sync logs from the database.</p>
+                                </div>
+                                <button
+                                    onClick={handleWipeData}
+                                    className="px-6 py-2.5 rounded-lg bg-red-600 text-white hover:bg-red-500 transition-fast text-xs font-black uppercase tracking-widest shadow-lg shadow-red-900/20"
+                                >
+                                    Wipe All Data
+                                </button>
                             </div>
                         </div>
                     </section>
