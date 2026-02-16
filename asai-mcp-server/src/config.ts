@@ -5,19 +5,22 @@ if (!admin.apps.length) {
     const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
 
     if (serviceAccountVar) {
+        console.error("FIREBASE_SERVICE_ACCOUNT detected. Attempting to parse...");
         try {
             const serviceAccount = JSON.parse(serviceAccountVar);
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount),
                 projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id
             });
-        } catch (e) {
-            console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT env var. Falling back to default.");
+            console.error("Firebase initialized successfully with Service Account.");
+        } catch (e: any) {
+            console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT JSON: " + e.message);
             admin.initializeApp({
                 projectId: process.env.FIREBASE_PROJECT_ID || 'asai-analytics',
             });
         }
     } else {
+        console.error("FIREBASE_SERVICE_ACCOUNT not found in environment. Falling back to default.");
         admin.initializeApp({
             projectId: process.env.FIREBASE_PROJECT_ID || 'asai-analytics',
         });
