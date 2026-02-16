@@ -7,7 +7,7 @@ if (!admin.apps.length) {
     });
 }
 
-const db = admin.firestore();
+export const db = admin.firestore();
 
 export interface UserProviderConfig {
     google?: {

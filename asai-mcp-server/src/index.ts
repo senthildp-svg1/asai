@@ -185,4 +185,98 @@ app.post("/messages", async (req, res) => {
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
     console.error(`Asai Analytics MCP Server running on port ${PORT}`);
+
+    // Start background sync loop
+    startSyncLoop();
 });
+
+/**
+ * Background Sync Logic
+ * Periodically checks for new files and triages them
+ */
+async function startSyncLoop() {
+    console.error("Starting Background Sync Engine...");
+
+    // Run sync every 5 minutes
+    const SYNC_INTERVAL = 5 * 60 * 1000;
+
+    while (true) {
+        try {
+            console.error("\n--- Starting Global Sync Cycle ---");
+            const { db } = await import("./config.js");
+            const snapshot = await db.collection('userConfigs').get();
+
+            for (const d of snapshot.docs) {
+                const userId = d.id;
+                const config = d.data();
+
+                if (config.googleClientId && config.googleRefreshToken) {
+                    await syncUserDrive(userId, config);
+                }
+            }
+            console.error("--- Sync Cycle Complete ---");
+        } catch (error) {
+            console.error("Error in sync loop:", error);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, SYNC_INTERVAL));
+    }
+}
+
+async function syncUserDrive(userId: string, config: any) {
+    try {
+        const { db } = await import("./config.js");
+        const gdrive = new GoogleDriveClient({
+            clientId: config.googleClientId,
+            clientSecret: config.googleClientSecret,
+            refreshToken: config.googleRefreshToken,
+            redirectUri: config.googleRedirectUri || 'https://developers.google.com/oauthplayground'
+        });
+
+        const files = await gdrive.listFiles(config.googleFolderId);
+        if (!files || files.length === 0) return;
+
+        for (const file of files) {
+            // Check if already indexed
+            const dupSnap = await db.collection('documents')
+                .where('metadata.fileName', '==', file.name)
+                .where('metadata.userId', '==', userId)
+                .limit(1)
+                .get();
+
+            if (!dupSnap.empty) continue;
+
+            console.error(`Syncing new file: ${file.name}`);
+            const content = await gdrive.getFileContent(file.id);
+            const snippet = content.slice(0, 1000).toString();
+
+            const result = await triageEngine.triage(file.name, snippet, config.geminiApiKey || process.env.GEMINI_API_KEY);
+
+            // Index to Firestore
+            await db.collection('documents').add({
+                text: snippet,
+                metadata: {
+                    fileName: file.name,
+                    client: result.client,
+                    product: result.product,
+                    domain: result.domain,
+                    userId: userId,
+                    source: 'googledrive'
+                },
+                indexedAt: new Date()
+            });
+
+            // Log Activity
+            await db.collection('activities').add({
+                type: 'sync',
+                title: 'Cloud Sync Engine:',
+                details: `Processed '${file.name}' from Google Drive.`,
+                status: 'Complete',
+                timestamp: new Date(),
+                icon: '☁️'
+            });
+        }
+    } catch (error) {
+        console.error(`Sync error for user ${userId}:`, error);
+    }
+}
